@@ -3,6 +3,7 @@ from langgraph.graph import StateGraph
 from dotenv import load_dotenv
 from prompts import *
 from states import *
+from tools import *
 load_dotenv()
 
 llm = ChatGroq(model="openai/gpt-oss-120b", temperature=0)
@@ -28,6 +29,7 @@ def coder_agent(state:dict)-> dict:
     )
     system_prompt = coder_system_prompt()
     response = llm.invoke(system_prompt+user_prompt)
+    coder_tools = [read_file,write_file,list_files,get_current_directory]
     return {'code':response.content}
 
 
