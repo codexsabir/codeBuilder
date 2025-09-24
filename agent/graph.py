@@ -26,18 +26,21 @@ def coder_agent(state:dict)-> dict:
     steps = state['task_plan'].implementation_steps
     current_step_idx = 0
     current_task  = steps[current_step_idx]
+    existing_content = read_file(current_task.filepath)
     user_prompt = (
-        f"Task: {current_task.task_description}"
+        f"Task: {current_task.task_description}\n"
+        f"file:{current_task.filepath}\n"
+        f"Existing content:\n{existing_content}\n"
+        "User write_file(path, content) to save your changes"
     )
     system_prompt = coder_system_prompt()
-    response = llm.invoke(system_prompt+user_prompt)
     coder_tools = [read_file,write_file,list_files,get_current_directory]
     react_agent = create_react_agent(llm,coder_tools)
     react_agent.invoke({"messages":[{
-        "role":"system","content":system_prompt,
-        "role":"user","content":user_prompt
-    }]})
-    return {'code':response.content}
+        "role":"system","content":system_prompt},
+        {"role":"user","content":user_prompt}
+    ]})
+    return {}
 
 
 graph = StateGraph(dict)
