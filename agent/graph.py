@@ -1,5 +1,7 @@
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph
+from langchain.agents import create_react_agent
+
 from dotenv import load_dotenv
 from prompts import *
 from states import *
@@ -30,6 +32,11 @@ def coder_agent(state:dict)-> dict:
     system_prompt = coder_system_prompt()
     response = llm.invoke(system_prompt+user_prompt)
     coder_tools = [read_file,write_file,list_files,get_current_directory]
+    react_agent = create_react_agent(llm,coder_tools)
+    react_agent.invoke({"messages":[{
+        "role":"system","content":system_prompt,
+        "role":"user","content":user_prompt
+    }]})
     return {'code':response.content}
 
 
