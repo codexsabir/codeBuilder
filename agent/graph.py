@@ -12,9 +12,31 @@ def planner_agent(state:dict)-> dict:
     users_prompt = state['user_prompt']
     response = llm.with_structured_output(Plan).invoke(planner_prompt(user_prompt))
     return {"plan":response}
+def architect_agent(state:dict)-> dict:
+    plan = state['plan']
+    response = llm.with_structured_output(TaskPlan ).invoke(architect_prompt(plan))
+    if response is None:
+        raise ValueError('Architect did not return a valid response')
+    response.plan = plan
+    return {"task_plan":response}
+def coder_agent(state:dict)-> dict:
+    steps = state['task_plan'].implementation_steps
+    current_step_idx = 0
+    current_task  = steps[current_step_idx]
+    user_prompt = (
+        f"Task: {current_task.task_description}"
+    )
+    system_prompt = coder_system_prompt()
+    response = llm.invoke(system_prompt+user_prompt)
+    return {'code':response.content}
+
 
 graph = StateGraph(dict)
 graph.add_node('planner',planner_agent)
+graph.add_node('architect',architect_agent)
+graph.add_node('coder',coder_agent)
+graph.add_edge('planner','architect')
+graph.add_edge('architect','coder')
 graph.set_entry_point('planner')
 agent = graph.compile()
 
