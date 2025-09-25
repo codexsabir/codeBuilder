@@ -22,27 +22,37 @@ def architect_agent(state:dict)-> dict:
         raise ValueError('Architect did not return a valid response')
     response.plan = plan
     return {"task_plan":response}
-def coder_agent(state:dict)-> dict:
-    steps = state['task_plan'].implementation_steps
-    current_step_idx = 0
-    current_task  = steps[current_step_idx]
-    existing_content = read_file(current_task.filepath)
+def coder_agent(state: dict) -> dict:
+    """LangGraph tool-using coder agent."""
+    coder_state: CoderState = state.get("coder_state")
+    if coder_state is None:
+        coder_state = CoderState(task_plan=state["task_plan"], current_step_idx=0)
+
+    steps = coder_state.task_plan.implementation_steps
+    if coder_state.current_step_idx >= len(steps):
+        return {"coder_state": coder_state, "status": "DONE"}
+
+    current_task = steps[coder_state.current_step_idx]
+    existing_content = read_file.run(current_task.filepath)
+
+    system_prompt = coder_system_prompt()
     user_prompt = (
         f"Task: {current_task.task_description}\n"
-        f"file:{current_task.filepath}\n"
+        f"File: {current_task.filepath}\n"
         f"Existing content:\n{existing_content}\n"
-        "User write_file(path, content) to save your changes"
+        "Use write_file(path, content) to save your changes."
     )
-    system_prompt = coder_system_prompt()
-    coder_tools = [read_file,write_file,list_files,get_current_directory]
-    react_agent = create_react_agent(llm,coder_tools)
-    react_agent.invoke({"messages":[{
-        "role":"system","content":system_prompt},
-        {"role":"user","content":user_prompt}
-    ]})
-    return {}
+    from langchain import hub
+    prompt = hub.pull("hwchase17/react")
 
+    coder_tools = [read_file, write_file, list_files, get_current_directory]
+    react_agent = create_react_agent(llm, coder_tools,prompt)
 
+    react_agent.invoke({"messages": [{"role": "system", "content": system_prompt},
+                                     {"role": "user", "content": user_prompt}]})
+
+    coder_state.current_step_idx += 1
+    return {"coder_state": coder_state}
 graph = StateGraph(dict)
 graph.add_node('planner',planner_agent)
 graph.add_node('architect',architect_agent)
